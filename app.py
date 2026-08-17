@@ -1,11 +1,11 @@
 import re
 import streamlit as st
-import google
+import importlib.util
 import streamlit as st
 
-st.write("Google package:", google)
-st.write("Google path:", getattr(google, "__path__", "NO PATH"))
-st.stop()
+st.write("google:", importlib.util.find_spec("google"))
+st.write("google.genai:", importlib.util.find_spec("google.genai"))
+st.write("google.generativeai:", importlib.util.find_spec("google.generativeai"))
 from google.genai import types
 
 st.set_page_config(
