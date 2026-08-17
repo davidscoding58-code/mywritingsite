@@ -1,6 +1,11 @@
 import re
 import streamlit as st
-from google import genai
+import google
+import streamlit as st
+
+st.write("Google package:", google)
+st.write("Google path:", getattr(google, "__path__", "NO PATH"))
+st.stop()
 from google.genai import types
 
 st.set_page_config(
