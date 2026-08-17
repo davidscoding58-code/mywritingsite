@@ -1,132 +1,396 @@
+import re
 import streamlit as st
 from google import genai
 from google.genai import types
 
-st.set_page_config(page_title="Collaborative Essay Framework Builder", page_icon="🤝", layout="wide")
+st.set_page_config(
+    page_title="Collaborative Essay Framework Builder",
+    page_icon="🤝",
+    layout="wide",
+)
+
+# ============================================================
+# SESSION STATE
+# ============================================================
+
+defaults = {
+    "style_sample": "",
+    "requirements": "",
+    "personal_thoughts": "",
+    "essay_prompt": "",
+    "human_feedback": "",
+    "draft_text": "",
+    "tone_formality": 3,
+    "creative_risk": 3,
+}
+
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
+
+def word_count(text):
+    return len(re.findall(r"\S+", text.strip())) if text.strip() else 0
+
+
+def get_secret_key():
+    try:
+        return st.secrets.get("GEMINI_API_KEY", "")
+    except Exception:
+        return ""
+
+
+def build_system_instruction(
+    style_sample,
+    requirements,
+    personal_thoughts,
+    essay_prompt,
+    human_feedback,
+    tone_formality,
+    creative_risk,
+):
+
+    tone_descriptions = {
+        1: "Casual and conversational. Use natural speech and avoid unnecessary formality.",
+        2: "Mostly conversational with moderate polish.",
+        3: "Balanced and polished while maintaining a natural student voice.",
+        4: "Formal and sophisticated without sounding artificial.",
+        5: "Highly academic and traditional, using sophisticated language where appropriate.",
+    }
+
+    creativity_descriptions = {
+        1: "Safe and structured. Prioritize clarity and conventional organization.",
+        2: "Moderately creative with occasional distinctive phrasing.",
+        3: "Balanced creativity. Use memorable language when it serves the story.",
+        4: "Bold and expressive. Use distinctive imagery when appropriate.",
+        5: "Highly artistic and bold. Allow unusual imagery and metaphors when they genuinely strengthen the essay.",
+    }
+
+    return f"""
+You are an elite college-application writing coach and structural editor.
+
+Your task is to create a strong FOUNDATION DRAFT for a college application essay.
+The student will personally edit, rewrite, and polish the result.
+
+VOICE:
+Study the Style Sample carefully. Match its underlying cadence, sentence rhythm,
+vocabulary, directness, and personality. Do not copy its specific wording.
+
+REQUIREMENTS:
+Follow the target school's requirements, grader expectations, and other
+instructions provided by the student.
+
+PERSONAL MATERIAL:
+Use the student's actual memories, experiences, opinions, observations, and stories.
+NEVER invent achievements, events, relationships, dialogue, locations, or factual
+details that the student did not provide.
+
+PROMPT:
+The Official Essay Prompt is authoritative. Directly answer the actual question
+and respect the specified word count.
+
+HUMAN FEEDBACK:
+If Human Feedback is provided, prioritize applying it to the revision unless it
+conflicts with the official prompt or factual information.
+
+TONE FORMALITY:
+Level {tone_formality}/5
+{tone_descriptions[tone_formality]}
+
+CREATIVE RISK:
+Level {creative_risk}/5
+{creativity_descriptions[creative_risk]}
+
+AVOID GENERIC AI WRITING.
+
+Do not use cliché phrases such as:
+- "From a young age..."
+- "This experience taught me..."
+- "Throughout my journey..."
+- "Little did I know..."
+- "I have always been passionate about..."
+- "It shaped me into the person I am today..."
+- generic claims about resilience
+- generic claims about leadership
+- generic claims about perseverance
+- empty moral lessons
+
+Do not make the essay sound like marketing copy or a professional novelist wrote it.
+
+Prioritize specificity, authenticity, strong structure, meaningful reflection,
+and a natural student voice.
+
+The result should be a real foundation draft, NOT:
+- an outline
+- bullet points
+- writing advice
+- commentary
+- an explanation
+
+Return ONLY the foundation draft.
+
+========================
+STYLE SAMPLE
+========================
+{style_sample}
+
+========================
+REQUIREMENTS & GRADER STYLE
+========================
+{requirements}
+
+========================
+PERSONAL THOUGHTS & EXPERIENCES
+========================
+{personal_thoughts}
+
+========================
+OFFICIAL ESSAY PROMPT
+========================
+{essay_prompt}
+
+========================
+HUMAN FEEDBACK & REVIEW COMMENTS
+========================
+{human_feedback if human_feedback.strip() else "No human feedback provided."}
+"""
+
+
+def generate_draft(api_key):
+
+    client = genai.Client(api_key=api_key)
+
+    system_instruction = build_system_instruction(
+        st.session_state.style_sample,
+        st.session_state.requirements,
+        st.session_state.personal_thoughts,
+        st.session_state.essay_prompt,
+        st.session_state.human_feedback,
+        st.session_state.tone_formality,
+        st.session_state.creative_risk,
+    )
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents="""
+Create the strongest possible foundation draft using all of the provided
+information.
+
+Write the actual essay.
+
+Do not invent factual details.
+
+Return only the draft.
+""",
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0.7,
+        ),
+    )
+
+    if not response.text:
+        raise RuntimeError("Gemini returned an empty response.")
+
+    return response.text.strip()
+
+
+# ============================================================
+# HEADER
+# ============================================================
+
 st.title("🤝 Collaborative Essay Framework Builder")
-st.write("Factor in peer review notes, counselor edits, or teacher comments to upgrade your essay foundation.")
 
-# Sidebar Settings
+st.caption(
+    "Build the structural foundation with AI, then edit and polish it yourself."
+)
+
+
+# ============================================================
+# SIDEBAR
+# ============================================================
+
 with st.sidebar:
-    st.header("🔑 Settings")
-    api_key = st.text_input("Enter Gemini API Key:", type="password")
-    st.caption("Get a free key from Google AI Studio.")
-    
-    st.header("🎛️ Dial In Style Parameters")
-    formality_level = st.slider("Tone Formality Level:", min_value=1, max_value=5, value=3, 
-                                help="1 = Casual/Conversational, 5 = Highly Academic/Traditional")
-    creativity_level = st.slider("Creative Risk-Taking:", min_value=1, max_value=5, value=3, 
-                                 help="1 = Safe & Structured, 5 = Artistic, Bold Metaphors & Hooks")
 
-# Initialize session state for the draft
-if "essay_draft" not in st.session_state:
-    st.session_state.essay_draft = ""
+    st.header("⚙️ Configuration")
 
-# Layout Columns
-col1, col2 = st.columns(2)
-
-with col1:
-    st.header("🎨 Step 1: Voice & Rules")
-    style_sample = st.text_area(
-        "Paste a style sample (Your preferred natural writing rhythm):", 
-        height=100,
-        placeholder="Paste a past writing sample that feels authentic to you..."
-    )
-    
-    audience_guide = st.text_area(
-        "Requirements & Grader Style (Target school/teacher expectations):",
-        height=100,
-        placeholder="Example: Ivy League app reading committee looking for intellectual curiosity."
-    )
-    
-    st.header("🧠 Step 2: Content & Goal")
-    personal_thoughts = st.text_area(
-        "Brain dump your thoughts, memories, and personal experiences:", 
-        height=120,
-        placeholder="Unfiltered notes. What happened? What did you learn? Why does it matter?"
-    )
-    
-    prompt_text = st.text_area(
-        "Paste the official essay prompt and length constraints:", 
-        height=80,
-        placeholder="Example: Why do you want to attend our school? Max 250 words."
+    api_key = st.text_input(
+        "Google Gemini API Key",
+        type="password",
+        placeholder="Paste your Gemini API key",
+        help="Your API key is not stored in the application code.",
     )
 
-    st.header("💬 Step 3: Outside Critique")
-    human_feedback = st.text_area(
-        "Human Feedback & Review Comments (Optional):",
-        height=120,
-        placeholder="Paste edits from a teacher, parent, or friend here. Example: 'Paragraph 2 is too long' or 'Focus more on the teamwork angle instead of your coding skill.'"
-    )
-    
-    generate_btn = st.button("Pour / Refine Foundation Draft", type="primary")
+    secret_key = get_secret_key()
 
-with col2:
-    st.header("🧱 Collaborative Foundation Canvas")
-    
-    # Trigger AI generation
-    if generate_btn:
-        if not api_key:
-            st.error("Please enter your Gemini API Key in the sidebar.")
-        elif not style_sample or not personal_thoughts or not prompt_text:
-            st.error("Please fill out the primary fields (Voice, Substance, and Goal) to generate or refine your text.")
+    effective_key = api_key.strip() or secret_key.strip()
+
+    if secret_key:
+        st.success("Gemini API key loaded from Streamlit Secrets.")
+
+    st.divider()
+
+    st.subheader("Style Tuning")
+
+    st.session_state.tone_formality = st.slider(
+        "Tone Formality Level",
+        min_value=1,
+        max_value=5,
+        value=st.session_state.tone_formality,
+        help="1 = Casual/Conversational, 5 = Highly Academic/Traditional",
+    )
+
+    st.session_state.creative_risk = st.slider(
+        "Creative Risk-Taking",
+        min_value=1,
+        max_value=5,
+        value=st.session_state.creative_risk,
+        help="1 = Safe & Structured, 5 = Artistic/Bold Metaphors",
+    )
+
+
+# ============================================================
+# TWO-COLUMN WORKSPACE
+# ============================================================
+
+left, right = st.columns(2, gap="large")
+
+
+# ============================================================
+# LEFT COLUMN
+# ============================================================
+
+with left:
+
+    st.header("📝 My Inputs")
+
+    st.session_state.style_sample = st.text_area(
+        "1. Style Sample",
+        value=st.session_state.style_sample,
+        height=180,
+        placeholder=(
+            "Paste a past writing sample showing your natural rhythm, "
+            "vocabulary, sentence structure, and personality."
+        ),
+    )
+
+    st.session_state.requirements = st.text_area(
+        "2. Requirements & Grader Style",
+        value=st.session_state.requirements,
+        height=160,
+        placeholder=(
+            "Target school, teacher expectations, grading criteria, "
+            "required themes, things to avoid, etc."
+        ),
+    )
+
+    st.session_state.personal_thoughts = st.text_area(
+        "3. Personal Thoughts & Experiences",
+        value=st.session_state.personal_thoughts,
+        height=220,
+        placeholder=(
+            "Dump your memories, stories, opinions, experiences, "
+            "specific moments, observations, and thoughts here."
+        ),
+    )
+
+    st.session_state.essay_prompt = st.text_area(
+        "4. Official Essay Prompt",
+        value=st.session_state.essay_prompt,
+        height=150,
+        placeholder=(
+            "Paste the exact college application question and word limit."
+        ),
+    )
+
+    st.session_state.human_feedback = st.text_area(
+        "5. Human Feedback & Review Comments",
+        value=st.session_state.human_feedback,
+        height=160,
+        placeholder=(
+            "Optional feedback from a parent, teacher, counselor, "
+            "or peer reviewer."
+        ),
+    )
+
+    if st.button(
+        "🚀 Pour / Refine Foundation Draft",
+        type="primary",
+        use_container_width=True,
+    ):
+
+        if not effective_key:
+            st.error(
+                "Enter your Gemini API key in the sidebar or add "
+                "GEMINI_API_KEY to Streamlit Secrets."
+            )
+
+        elif not st.session_state.essay_prompt.strip():
+            st.error("Enter the official essay prompt.")
+
+        elif not st.session_state.personal_thoughts.strip():
+            st.error("Enter your personal thoughts and experiences.")
+
         else:
-            with st.spinner("Weaving your stories and peer critiques into the foundation..."):
-                try:
-                    client = genai.Client(api_key=api_key)
-                    
-                    # Convert sliders into text descriptions
-                    formality_map = {1: "conversational, approachably raw", 2: "semi-formal", 3: "balanced and natural", 4: "polished and highly professional", 5: "deeply academic and elegant"}
-                    creativity_map = {1: "safe and highly structured", 2: "standard narrative", 3: "thoughtful storytelling", 4: "bold imagery and unique thematic threads", 5: "experimental and memorable"}
-                    
-                    system_instruction = (
-                        f"You are an elite academic writing coach. Your goal is to draft or refine a foundational essay framework. "
-                        f"1. You must mimic the voice, cadence, and structure found in the 'Style Sample'.\n"
-                        f"2. Calibrate the text tone to be {formality_map[formality_level]} with a {creativity_map[creativity_level]} structure.\n"
-                        f"3. Strictly satisfy the target school guidelines from the 'Requirements' section.\n"
-                        f"4. If 'Human Feedback & Review Comments' are provided, prioritize adjusting the text layout to directly fix those issues."
-                    )
-                    
-                    user_content = (
-                        f"USER NATURAL VOICE MODEL:\n\"\"\"{style_sample}\"\"\"\n\n"
-                        f"GRADER EXPECTATIONS:\n\"\"\"{audience_guide}\"\"\"\n\n"
-                        f"RAW PERSONAL EXPERIENCES:\n\"\"\"{personal_thoughts}\"\"\"\n\n"
-                        f"OFFICIAL TARGET PROMPT:\n\"\"\"{prompt_text}\"\"\"\n\n"
-                        f"CRITICAL HUMAN FEEDBACK TO INTEGRATE (IF ANY):\n\"\"\"{human_feedback}\"\"\""
-                    )
-                    
-                    response = client.models.generate_content(
-                        model='gemini-2.5-flash',
-                        contents=user_content,
-                        config=types.GenerateContentConfig(
-                            system_instruction=system_instruction,
-                            temperature=0.55,
-                        )
-                    )
-                    
-                    st.session_state.essay_draft = response.text
-                    st.success("Foundation upgraded successfully!")
-                    
-                except Exception as e:
-                    st.error(f"Error during construction: {e}")
 
-    # Interactive canvas
-    edited_draft = st.text_area(
-        "Interactive Construction Area (Tweak live here):",
-        value=st.session_state.essay_draft,
-        height=400,
-        placeholder="Your customized framework draft will appear here. Edit it directly to perfect the piece.",
-        key="editable_canvas"
+            with st.spinner("Building your foundation draft..."):
+
+                try:
+
+                    st.session_state.draft_text = generate_draft(
+                        effective_key
+                    )
+
+                    st.success("Foundation draft created.")
+
+                except Exception as e:
+
+                    st.error(f"Gemini error: {e}")
+
+
+# ============================================================
+# RIGHT COLUMN
+# ============================================================
+
+with right:
+
+    st.header("✍️ My Editing Workspace")
+
+    st.text_area(
+        "Foundation Draft",
+        key="draft_text",
+        height=650,
+        placeholder=(
+            "Your foundation draft will appear here. "
+            "Edit anything you want."
+        ),
+        label_visibility="collapsed",
     )
-    
-    # Real-time tracking
-    word_count = len(edited_draft.split()) if edited_draft.strip() else 0
-    st.caption(f"📊 **Word Count:** {word_count} words")
-    
-    if st.session_state.essay_draft:
-        st.download_button(
-            label="💾 Download Tailored Draft",
-            data=edited_draft,
-            file_name="tailored_essay.txt",
-            mime="text/plain"
-        )
+
+    st.metric(
+        "Word Count",
+        word_count(st.session_state.draft_text),
+    )
+
+    st.download_button(
+        "⬇️ Download Draft as .txt",
+        data=st.session_state.draft_text,
+        file_name="essay_foundation_draft.txt",
+        mime="text/plain",
+        use_container_width=True,
+        disabled=not bool(st.session_state.draft_text.strip()),
+    )
+
+
+# ============================================================
+# FOOTER
+# ============================================================
+
+st.divider()
+
+st.caption(
+    "AI builds the foundation. You control the final essay."
+)
