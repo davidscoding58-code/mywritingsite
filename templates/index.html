@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Essay Foundation</title>
+    <title>Collaborative Essay Studio</title>
 
     <link
         rel="stylesheet"
@@ -14,116 +13,353 @@
 
 <body>
 
-<div class="topbar">
-    <div class="brand">Essay Foundation</div>
+<header class="topbar">
+    <div class="brand-block">
+        <div class="brand-icon">✦</div>
 
-    <a href="/logout" class="logout">Log out</a>
-</div>
+        <div>
+            <div class="brand-title">
+                Collaborative Essay Studio
+            </div>
 
-<main class="container">
-
-    <section class="hero">
-        <h1>Build your essay.</h1>
-        <p>
-            Give the AI your writing style, raw ideas, prompt, and requirements.
-            It turns them into a foundation you can edit yourself.
-        </p>
-    </section>
-
-
-    <section class="input-grid">
-
-        <div class="card">
-            <label for="oldEssay">Old Essay</label>
-
-            <p class="hint">
-                Give the AI a sample of your natural writing style.
-            </p>
-
-            <textarea
-                id="oldEssay"
-                placeholder="Paste an old essay here..."
-            ></textarea>
+            <div class="brand-subtitle">
+                AI-assisted drafting workspace
+            </div>
         </div>
-
-
-        <div class="card">
-            <label for="brainDump">Brain Dump</label>
-
-            <p class="hint">
-                Messy is fine. Put down your stories, memories, ideas,
-                details, and anything you might want to use.
-            </p>
-
-            <textarea
-                id="brainDump"
-                placeholder="Dump your ideas here..."
-            ></textarea>
-        </div>
-
-
-        <div class="card">
-            <label for="prompt">Essay Prompt</label>
-
-            <p class="hint">
-                Paste the exact question or assignment.
-            </p>
-
-            <textarea
-                id="prompt"
-                placeholder="Paste the essay prompt here..."
-            ></textarea>
-        </div>
-
-
-        <div class="card">
-            <label for="gradingRules">Grading Rules</label>
-
-            <p class="hint">
-                Word limits, rubric requirements, formatting rules,
-                things your teacher wants, etc.
-            </p>
-
-            <textarea
-                id="gradingRules"
-                placeholder="Paste grading criteria or requirements here..."
-            ></textarea>
-        </div>
-
-    </section>
-
-
-    <div class="generate-row">
-        <button id="generateButton" onclick="generateDraft()">
-            Generate Foundation
-        </button>
-
-        <span id="status"></span>
     </div>
 
+    <div class="status-pill">
+        <span class="status-dot"></span>
+        AI Ready
+    </div>
+</header>
 
-    <section class="editor-card">
 
-        <div class="editor-header">
+<main class="app-shell">
+
+    <section class="intro-panel">
+
+        <div>
+            <div class="eyebrow">
+                COLLABORATIVE ESSAY STUDIO
+            </div>
+
+            <h1>
+                Build the full essay.
+            </h1>
+
+            <p>
+                Give the AI your prompt, writing sample, raw ideas,
+                requirements, and revision notes. It will produce a
+                complete draft you can edit directly.
+            </p>
+        </div>
+
+        <div class="preset-area">
+            <span class="preset-label">Scenario</span>
+
+            <div class="preset-switch">
+                <button
+                    class="preset active"
+                    type="button"
+                    data-preset="college"
+                >
+                    College Admissions
+                </button>
+
+                <button
+                    class="preset"
+                    type="button"
+                    data-preset="persuasive"
+                >
+                    Persuasive Op-Ed
+                </button>
+            </div>
+        </div>
+
+    </section>
+
+
+    <section class="section-block">
+
+        <div class="section-heading">
+            Tone & Risk Calibration
+        </div>
+
+        <div class="slider-card">
+
+            <div class="slider-header">
+                <label for="formalitySlider">
+                    Formality
+                </label>
+
+                <span id="formalityValue">
+                    45%
+                </span>
+            </div>
+
+            <input
+                id="formalitySlider"
+                type="range"
+                min="0"
+                max="100"
+                value="45"
+            >
+
+            <div class="slider-scale">
+                <span>Casual</span>
+                <span>Formal</span>
+            </div>
+
+        </div>
+
+
+        <div class="slider-card">
+
+            <div class="slider-header">
+                <label for="riskSlider">
+                    Creative Risk
+                </label>
+
+                <span id="riskValue">
+                    80%
+                </span>
+            </div>
+
+            <input
+                id="riskSlider"
+                type="range"
+                min="0"
+                max="100"
+                value="80"
+            >
+
+            <div class="slider-scale">
+                <span>Safe</span>
+                <span>Bold</span>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="section-block">
+
+        <div class="section-heading">
+            Essay Configuration
+        </div>
+
+
+        <div class="input-grid">
+
+            <div class="field-card">
+                <div class="field-heading">
+                    <span class="field-icon blue">▧</span>
+
+                    <div>
+                        <label for="prompt">
+                            Essay Prompt
+                        </label>
+
+                        <p>
+                            Paste the exact question you need to answer.
+                        </p>
+                    </div>
+                </div>
+
+                <textarea
+                    id="prompt"
+                    class="auto-grow"
+                    placeholder="Paste the essay prompt here..."
+                ></textarea>
+            </div>
+
+
+            <div class="field-card">
+                <div class="field-heading">
+                    <span class="field-icon purple">❝</span>
+
+                    <div>
+                        <label for="oldEssay">
+                            Style Reference
+                        </label>
+
+                        <p>
+                            Paste an older essay so the AI can learn your writing patterns.
+                        </p>
+                    </div>
+                </div>
+
+                <textarea
+                    id="oldEssay"
+                    class="auto-grow extra-large"
+                    placeholder="Paste an old essay here..."
+                ></textarea>
+            </div>
+
+
+            <div class="field-card">
+                <div class="field-heading">
+                    <span class="field-icon green">✓</span>
+
+                    <div>
+                        <label for="gradingRules">
+                            Requirements
+                        </label>
+
+                        <p>
+                            Word limit, rubric, structure rules, and anything required.
+                        </p>
+                    </div>
+                </div>
+
+                <textarea
+                    id="gradingRules"
+                    class="auto-grow"
+                    placeholder="Example: Max 650 words, clear narrative arc, authentic tone..."
+                ></textarea>
+            </div>
+
+
+            <div class="field-card">
+                <div class="field-heading">
+                    <span class="field-icon cyan">▤</span>
+
+                    <div>
+                        <label for="brainDump">
+                            Brain Dump
+                        </label>
+
+                        <p>
+                            Put every story, detail, memory, and messy thought here.
+                        </p>
+                    </div>
+                </div>
+
+                <textarea
+                    id="brainDump"
+                    class="auto-grow extra-large"
+                    placeholder="Dump all of your ideas here..."
+                ></textarea>
+            </div>
+
+
+            <div class="field-card">
+                <div class="field-heading">
+                    <span class="field-icon amber">✎</span>
+
+                    <div>
+                        <label for="additionalInstructions">
+                            Additional Instructions
+                        </label>
+
+                        <p>
+                            Anything else you want the AI to emphasize or avoid.
+                        </p>
+                    </div>
+                </div>
+
+                <textarea
+                    id="additionalInstructions"
+                    class="auto-grow"
+                    placeholder="Example: Start with a stronger hook. Avoid sounding overly polished..."
+                ></textarea>
+            </div>
+
+
+            <div class="field-card">
+                <div class="field-heading">
+                    <span class="field-icon blue">□</span>
+
+                    <div>
+                        <label for="humanFeedback">
+                            Human Feedback
+                        </label>
+
+                        <p>
+                            Add feedback from yourself, a teacher, counselor, or editor.
+                        </p>
+                    </div>
+                </div>
+
+                <textarea
+                    id="humanFeedback"
+                    class="auto-grow"
+                    placeholder="Example: The opening is too slow. Make the reflection deeper..."
+                ></textarea>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="generation-panel">
+
+        <button
+            id="generateButton"
+            class="generate-button"
+            type="button"
+            onclick="generateDraft()"
+        >
+            <span>✦</span>
+            Generate Full Essay
+        </button>
+
+        <div id="status" class="generation-status">
+            Ready when you are.
+        </div>
+
+    </section>
+
+
+    <section class="draft-section">
+
+        <div class="draft-header">
+
             <div>
-                <h2>Your Draft</h2>
+                <div class="section-heading small">
+                    AI Generated Draft
+                </div>
+
                 <p>
-                    Click anywhere below and edit the essay directly.
+                    Edit the full essay directly below.
                 </p>
             </div>
 
-            <button
-                class="secondary-button"
-                onclick="copyDraft()"
-            >
-                Copy
-            </button>
+            <div class="draft-actions">
+
+                <div class="word-pill">
+                    <span id="wordCount">0</span>
+                    words
+                </div>
+
+                <button
+                    class="secondary-button"
+                    type="button"
+                    onclick="copyDraft()"
+                >
+                    Copy Full Draft
+                </button>
+
+                <button
+                    class="danger-button"
+                    type="button"
+                    onclick="clearDraft()"
+                >
+                    Clear
+                </button>
+
+            </div>
+
         </div>
+
 
         <textarea
             id="draft"
             class="draft-editor"
-            placeholder="Your generated foundation will appear here..."
+            placeholder="Your complete essay will appear here..."
         ></textarea>
 
     </section>
@@ -132,6 +368,70 @@
 
 
 <script>
+
+const formalitySlider = document.getElementById("formalitySlider");
+const riskSlider = document.getElementById("riskSlider");
+const formalityValue = document.getElementById("formalityValue");
+const riskValue = document.getElementById("riskValue");
+const draft = document.getElementById("draft");
+const wordCount = document.getElementById("wordCount");
+
+
+function updateSliderLabels() {
+    formalityValue.textContent = formalitySlider.value + "%";
+    riskValue.textContent = riskSlider.value + "%";
+}
+
+
+formalitySlider.addEventListener("input", updateSliderLabels);
+riskSlider.addEventListener("input", updateSliderLabels);
+
+
+document.querySelectorAll(".auto-grow").forEach((textarea) => {
+
+    const resize = () => {
+        textarea.style.height = "auto";
+        textarea.style.height =
+            Math.max(textarea.scrollHeight, textarea.classList.contains("extra-large") ? 320 : 220)
+            + "px";
+    };
+
+    textarea.addEventListener("input", resize);
+
+    resize();
+});
+
+
+function updateWordCount() {
+
+    const text = draft.value.trim();
+
+    if (!text) {
+        wordCount.textContent = "0";
+        return;
+    }
+
+    const words = text.split(/\s+/).filter(Boolean);
+
+    wordCount.textContent = words.length;
+}
+
+
+draft.addEventListener("input", updateWordCount);
+
+
+document.querySelectorAll(".preset").forEach((button) => {
+
+    button.addEventListener("click", () => {
+
+        document.querySelectorAll(".preset").forEach((item) => {
+            item.classList.remove("active");
+        });
+
+        button.classList.add("active");
+    });
+});
+
 
 async function generateDraft() {
 
@@ -143,23 +443,35 @@ async function generateDraft() {
     const prompt = document.getElementById("prompt").value;
     const gradingRules = document.getElementById("gradingRules").value;
 
-    if (!brainDump.trim()) {
-        status.textContent = "Add your brain dump first.";
-        return;
-    }
+    const additionalInstructions =
+        document.getElementById("additionalInstructions").value;
+
+    const humanFeedback =
+        document.getElementById("humanFeedback").value;
+
 
     if (!prompt.trim()) {
         status.textContent = "Add the essay prompt first.";
         return;
     }
 
+    if (!brainDump.trim()) {
+        status.textContent = "Add your brain dump first.";
+        return;
+    }
+
+
     button.disabled = true;
-    button.textContent = "Building...";
-    status.textContent = "Gemini is building your foundation...";
+    button.innerHTML = "<span>✦</span> Generating...";
+
+    status.textContent =
+        "AI is writing the complete essay...";
+
 
     try {
 
         const response = await fetch("/generate", {
+
             method: "POST",
 
             headers: {
@@ -167,22 +479,53 @@ async function generateDraft() {
             },
 
             body: JSON.stringify({
+
                 old_essay: oldEssay,
+
                 brain_dump: brainDump,
+
                 prompt: prompt,
-                grading_rules: gradingRules
+
+                grading_rules: gradingRules,
+
+                additional_instructions:
+                    additionalInstructions,
+
+                human_feedback:
+                    humanFeedback,
+
+                formality:
+                    Number(formalitySlider.value),
+
+                creative_risk:
+                    Number(riskSlider.value)
+
             })
         });
 
+
         const result = await response.json();
 
+
         if (!response.ok) {
-            throw new Error(result.error || "Something went wrong.");
+            throw new Error(
+                result.error || "Generation failed."
+            );
         }
 
-        document.getElementById("draft").value = result.draft;
 
-        status.textContent = "Draft generated.";
+        draft.value = result.draft || "";
+
+        updateWordCount();
+
+        status.textContent =
+            "Complete draft generated.";
+
+        draft.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+
 
     } catch (error) {
 
@@ -191,28 +534,36 @@ async function generateDraft() {
     } finally {
 
         button.disabled = false;
-        button.textContent = "Generate Foundation";
+
+        button.innerHTML =
+            "<span>✦</span> Generate Full Essay";
     }
 }
 
 
 async function copyDraft() {
 
-    const draft = document.getElementById("draft").value;
+    const text = draft.value;
 
-    if (!draft.trim()) {
+    if (!text.trim()) {
         return;
     }
 
-    await navigator.clipboard.writeText(draft);
+    await navigator.clipboard.writeText(text);
 
-    const status = document.getElementById("status");
+    document.getElementById("status").textContent =
+        "Draft copied.";
+}
 
-    status.textContent = "Copied.";
 
-    setTimeout(() => {
-        status.textContent = "";
-    }, 1500);
+function clearDraft() {
+
+    draft.value = "";
+
+    updateWordCount();
+
+    document.getElementById("status").textContent =
+        "Draft cleared.";
 }
 
 </script>
