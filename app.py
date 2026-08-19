@@ -1,401 +1,166 @@
-import re
-import streamlit as st
-import importlib.util
-import streamlit as st
+ import os
+from functools import wraps
 
-st.write("google:", importlib.util.find_spec("google"))
-st.write("google.genai:", importlib.util.find_spec("google.genai"))
-st.write("google.generativeai:", importlib.util.find_spec("google.generativeai"))
-from google.genai import types
-
-st.set_page_config(
-    page_title="Collaborative Essay Framework Builder",
-    page_icon="🤝",
-    layout="wide",
-)
-
-# ============================================================
-# SESSION STATE
-# ============================================================
-
-defaults = {
-    "style_sample": "",
-    "requirements": "",
-    "personal_thoughts": "",
-    "essay_prompt": "",
-    "human_feedback": "",
-    "draft_text": "",
-    "tone_formality": 3,
-    "creative_risk": 3,
-}
-
-for key, value in defaults.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
+from flask import Flask, render_template, request, session, redirect, url_for
+from google import genai
 
 
-# ============================================================
-# HELPER FUNCTIONS
-# ============================================================
+app = Flask(__name__)
 
-def word_count(text):
-    return len(re.findall(r"\S+", text.strip())) if text.strip() else 0
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "change-this-secret")
 
+SITE_PASSWORD = os.environ.get("SITE_PASSWORD")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-def get_secret_key():
-    try:
-        return st.secrets.get("GEMINI_API_KEY", "")
-    except Exception:
-        return ""
+if GEMINI_API_KEY:
+    client = genai.Client(api_key=GEMINI_API_KEY)
+else:
+    client = None
 
 
-def build_system_instruction(
-    style_sample,
-    requirements,
-    personal_thoughts,
-    essay_prompt,
-    human_feedback,
-    tone_formality,
-    creative_risk,
-):
+def login_required(function):
+    @wraps(function)
+    def decorated_function(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return function(*args, **kwargs)
 
-    tone_descriptions = {
-        1: "Casual and conversational. Use natural speech and avoid unnecessary formality.",
-        2: "Mostly conversational with moderate polish.",
-        3: "Balanced and polished while maintaining a natural student voice.",
-        4: "Formal and sophisticated without sounding artificial.",
-        5: "Highly academic and traditional, using sophisticated language where appropriate.",
-    }
+    return decorated_function
 
-    creativity_descriptions = {
-        1: "Safe and structured. Prioritize clarity and conventional organization.",
-        2: "Moderately creative with occasional distinctive phrasing.",
-        3: "Balanced creativity. Use memorable language when it serves the story.",
-        4: "Bold and expressive. Use distinctive imagery when appropriate.",
-        5: "Highly artistic and bold. Allow unusual imagery and metaphors when they genuinely strengthen the essay.",
-    }
 
-    return f"""
-You are an elite college-application writing coach and structural editor.
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
 
-Your task is to create a strong FOUNDATION DRAFT for a college application essay.
-The student will personally edit, rewrite, and polish the result.
+    if request.method == "POST":
+        password = request.form.get("password", "")
 
-VOICE:
-Study the Style Sample carefully. Match its underlying cadence, sentence rhythm,
-vocabulary, directness, and personality. Do not copy its specific wording.
+        if SITE_PASSWORD and password == SITE_PASSWORD:
+            session["logged_in"] = True
+            return redirect(url_for("home"))
 
-REQUIREMENTS:
-Follow the target school's requirements, grader expectations, and other
-instructions provided by the student.
+        error = "Incorrect password."
 
-PERSONAL MATERIAL:
-Use the student's actual memories, experiences, opinions, observations, and stories.
-NEVER invent achievements, events, relationships, dialogue, locations, or factual
-details that the student did not provide.
+    return render_template("login.html", error=error)
 
-PROMPT:
-The Official Essay Prompt is authoritative. Directly answer the actual question
-and respect the specified word count.
 
-HUMAN FEEDBACK:
-If Human Feedback is provided, prioritize applying it to the revision unless it
-conflicts with the official prompt or factual information.
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
-TONE FORMALITY:
-Level {tone_formality}/5
-{tone_descriptions[tone_formality]}
 
-CREATIVE RISK:
-Level {creative_risk}/5
-{creativity_descriptions[creative_risk]}
+@app.route("/")
+@login_required
+def home():
+    return render_template("index.html")
 
-AVOID GENERIC AI WRITING.
 
-Do not use cliché phrases such as:
-- "From a young age..."
-- "This experience taught me..."
-- "Throughout my journey..."
-- "Little did I know..."
-- "I have always been passionate about..."
-- "It shaped me into the person I am today..."
-- generic claims about resilience
-- generic claims about leadership
-- generic claims about perseverance
-- empty moral lessons
+@app.route("/generate", methods=["POST"])
+@login_required
+def generate():
+    if client is None:
+        return {
+            "error": "Gemini API key is not configured on the server."
+        }, 500
 
-Do not make the essay sound like marketing copy or a professional novelist wrote it.
+    data = request.get_json(silent=True) or {}
 
-Prioritize specificity, authenticity, strong structure, meaningful reflection,
-and a natural student voice.
+    old_essay = data.get("old_essay", "").strip()
+    brain_dump = data.get("brain_dump", "").strip()
+    prompt = data.get("prompt", "").strip()
+    grading_rules = data.get("grading_rules", "").strip()
 
-The result should be a real foundation draft, NOT:
-- an outline
-- bullet points
-- writing advice
-- commentary
-- an explanation
+    if not brain_dump:
+        return {"error": "Please provide your brain dump."}, 400
 
-Return ONLY the foundation draft.
+    if not prompt:
+        return {"error": "Please provide the essay prompt."}, 400
 
-========================
-STYLE SAMPLE
-========================
-{style_sample}
+    system_instruction = """
+You are an expert college-essay drafting assistant.
 
-========================
-REQUIREMENTS & GRADER STYLE
-========================
-{requirements}
+Your job is to turn a student's raw material into a strong FIRST-DRAFT
+FOUNDATION for an essay.
 
-========================
-PERSONAL THOUGHTS & EXPERIENCES
-========================
-{personal_thoughts}
+The student's old essay is provided as a STYLE REFERENCE. Analyze its
+characteristics and write in a style that is strongly consistent with the
+student's natural writing patterns.
 
-========================
-OFFICIAL ESSAY PROMPT
-========================
-{essay_prompt}
+Prioritize:
+- The student's natural vocabulary
+- Their sentence length and rhythm
+- Their level of formality
+- Their storytelling tendencies
+- Their way of explaining personal experiences
+- Their natural personality and perspective
 
-========================
-HUMAN FEEDBACK & REVIEW COMMENTS
-========================
-{human_feedback if human_feedback.strip() else "No human feedback provided."}
+Do NOT copy distinctive sentences or phrases from the old essay.
+The old essay is for style analysis, not content copying.
+
+Use the student's brain dump as the factual source material.
+
+IMPORTANT:
+- Do not invent achievements, experiences, conversations, emotions,
+  motivations, or details that are not supported by the student's material.
+- Do not manufacture fake stories simply to make the essay stronger.
+- If a detail is unclear, write around it rather than inventing it.
+- Preserve the student's actual perspective.
+- Do not make the writing unnecessarily sophisticated.
+- Avoid generic inspirational language and admissions clichés.
+- The result should sound like a strong version of the student, not like
+  a professional adult writer.
+
+The essay prompt is the assignment you must answer.
+The grading rules are constraints you must follow.
+
+Produce only the draft itself. Do not explain your reasoning.
 """
 
+    user_prompt = f"""
+OLD ESSAY — STYLE REFERENCE:
 
-def generate_draft(api_key):
-
-    client = genai.Client(api_key=api_key)
-
-    system_instruction = build_system_instruction(
-        st.session_state.style_sample,
-        st.session_state.requirements,
-        st.session_state.personal_thoughts,
-        st.session_state.essay_prompt,
-        st.session_state.human_feedback,
-        st.session_state.tone_formality,
-        st.session_state.creative_risk,
-    )
-
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents="""
-Create the strongest possible foundation draft using all of the provided
-information.
-
-Write the actual essay.
-
-Do not invent factual details.
-
-Return only the draft.
-""",
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            temperature=0.7,
-        ),
-    )
-
-    if not response.text:
-        raise RuntimeError("Gemini returned an empty response.")
-
-    return response.text.strip()
+{old_essay if old_essay else "[No old essay provided]"}
 
 
-# ============================================================
-# HEADER
-# ============================================================
+BRAIN DUMP — STUDENT'S RAW MATERIAL:
 
-st.title("🤝 Collaborative Essay Framework Builder")
-
-st.caption(
-    "Build the structural foundation with AI, then edit and polish it yourself."
-)
+{brain_dump}
 
 
-# ============================================================
-# SIDEBAR
-# ============================================================
+ESSAY PROMPT:
 
-with st.sidebar:
-
-    st.header("⚙️ Configuration")
-
-    api_key = st.text_input(
-        "Google Gemini API Key",
-        type="password",
-        placeholder="Paste your Gemini API key",
-        help="Your API key is not stored in the application code.",
-    )
-
-    secret_key = get_secret_key()
-
-    effective_key = api_key.strip() or secret_key.strip()
-
-    if secret_key:
-        st.success("Gemini API key loaded from Streamlit Secrets.")
-
-    st.divider()
-
-    st.subheader("Style Tuning")
-
-    st.session_state.tone_formality = st.slider(
-        "Tone Formality Level",
-        min_value=1,
-        max_value=5,
-        value=st.session_state.tone_formality,
-        help="1 = Casual/Conversational, 5 = Highly Academic/Traditional",
-    )
-
-    st.session_state.creative_risk = st.slider(
-        "Creative Risk-Taking",
-        min_value=1,
-        max_value=5,
-        value=st.session_state.creative_risk,
-        help="1 = Safe & Structured, 5 = Artistic/Bold Metaphors",
-    )
+{prompt}
 
 
-# ============================================================
-# TWO-COLUMN WORKSPACE
-# ============================================================
+GRADING RULES / REQUIREMENTS:
 
-left, right = st.columns(2, gap="large")
+{grading_rules if grading_rules else "[No additional grading rules provided]"}
 
 
-# ============================================================
-# LEFT COLUMN
-# ============================================================
+Now create the first-draft foundation.
+"""
 
-with left:
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=user_prompt,
+            config={
+                "system_instruction": system_instruction,
+                "temperature": 0.8,
+            },
+        )
 
-    st.header("📝 My Inputs")
+        draft = response.text
 
-    st.session_state.style_sample = st.text_area(
-        "1. Style Sample",
-        value=st.session_state.style_sample,
-        height=180,
-        placeholder=(
-            "Paste a past writing sample showing your natural rhythm, "
-            "vocabulary, sentence structure, and personality."
-        ),
-    )
+        return {"draft": draft}
 
-    st.session_state.requirements = st.text_area(
-        "2. Requirements & Grader Style",
-        value=st.session_state.requirements,
-        height=160,
-        placeholder=(
-            "Target school, teacher expectations, grading criteria, "
-            "required themes, things to avoid, etc."
-        ),
-    )
-
-    st.session_state.personal_thoughts = st.text_area(
-        "3. Personal Thoughts & Experiences",
-        value=st.session_state.personal_thoughts,
-        height=220,
-        placeholder=(
-            "Dump your memories, stories, opinions, experiences, "
-            "specific moments, observations, and thoughts here."
-        ),
-    )
-
-    st.session_state.essay_prompt = st.text_area(
-        "4. Official Essay Prompt",
-        value=st.session_state.essay_prompt,
-        height=150,
-        placeholder=(
-            "Paste the exact college application question and word limit."
-        ),
-    )
-
-    st.session_state.human_feedback = st.text_area(
-        "5. Human Feedback & Review Comments",
-        value=st.session_state.human_feedback,
-        height=160,
-        placeholder=(
-            "Optional feedback from a parent, teacher, counselor, "
-            "or peer reviewer."
-        ),
-    )
-
-    if st.button(
-        "🚀 Pour / Refine Foundation Draft",
-        type="primary",
-        use_container_width=True,
-    ):
-
-        if not effective_key:
-            st.error(
-                "Enter your Gemini API key in the sidebar or add "
-                "GEMINI_API_KEY to Streamlit Secrets."
-            )
-
-        elif not st.session_state.essay_prompt.strip():
-            st.error("Enter the official essay prompt.")
-
-        elif not st.session_state.personal_thoughts.strip():
-            st.error("Enter your personal thoughts and experiences.")
-
-        else:
-
-            with st.spinner("Building your foundation draft..."):
-
-                try:
-
-                    st.session_state.draft_text = generate_draft(
-                        effective_key
-                    )
-
-                    st.success("Foundation draft created.")
-
-                except Exception as e:
-
-                    st.error(f"Gemini error: {e}")
+    except Exception as error:
+        return {
+            "error": f"Gemini request failed: {str(error)}"
+        }, 500
 
 
-# ============================================================
-# RIGHT COLUMN
-# ============================================================
-
-with right:
-
-    st.header("✍️ My Editing Workspace")
-
-    st.text_area(
-        "Foundation Draft",
-        key="draft_text",
-        height=650,
-        placeholder=(
-            "Your foundation draft will appear here. "
-            "Edit anything you want."
-        ),
-        label_visibility="collapsed",
-    )
-
-    st.metric(
-        "Word Count",
-        word_count(st.session_state.draft_text),
-    )
-
-    st.download_button(
-        "⬇️ Download Draft as .txt",
-        data=st.session_state.draft_text,
-        file_name="essay_foundation_draft.txt",
-        mime="text/plain",
-        use_container_width=True,
-        disabled=not bool(st.session_state.draft_text.strip()),
-    )
-
-
-# ============================================================
-# FOOTER
-# ============================================================
-
-st.divider()
-
-st.caption(
-    "AI builds the foundation. You control the final essay."
-)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
