@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Essay Foundation</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body>
+
+<div class="topbar">
+    <div class="brand">Essay Foundation</div>
+
+    <a href="/logout" class="logout">Log out</a>
+</div>
+
+<main class="container">
+
+    <section class="hero">
+        <h1>Build your essay.</h1>
+        <p>
+            Give the AI your writing style, raw ideas, prompt, and requirements.
+            It turns them into a foundation you can edit yourself.
+        </p>
+    </section>
+
+
+    <section class="input-grid">
+
+        <div class="card">
+            <label for="oldEssay">Old Essay</label>
+
+            <p class="hint">
+                Give the AI a sample of your natural writing style.
+            </p>
+
+            <textarea
+                id="oldEssay"
+                placeholder="Paste an old essay here..."
+            ></textarea>
+        </div>
+
+
+        <div class="card">
+            <label for="brainDump">Brain Dump</label>
+
+            <p class="hint">
+                Messy is fine. Put down your stories, memories, ideas,
+                details, and anything you might want to use.
+            </p>
+
+            <textarea
+                id="brainDump"
+                placeholder="Dump your ideas here..."
+            ></textarea>
+        </div>
+
+
+        <div class="card">
+            <label for="prompt">Essay Prompt</label>
+
+            <p class="hint">
+                Paste the exact question or assignment.
+            </p>
+
+            <textarea
+                id="prompt"
+                placeholder="Paste the essay prompt here..."
+            ></textarea>
+        </div>
+
+
+        <div class="card">
+            <label for="gradingRules">Grading Rules</label>
+
+            <p class="hint">
+                Word limits, rubric requirements, formatting rules,
+                things your teacher wants, etc.
+            </p>
+
+            <textarea
+                id="gradingRules"
+                placeholder="Paste grading criteria or requirements here..."
+            ></textarea>
+        </div>
+
+    </section>
+
+
+    <div class="generate-row">
+        <button id="generateButton" onclick="generateDraft()">
+            Generate Foundation
+        </button>
+
+        <span id="status"></span>
+    </div>
+
+
+    <section class="editor-card">
+
+        <div class="editor-header">
+            <div>
+                <h2>Your Draft</h2>
+                <p>
+                    Click anywhere below and edit the essay directly.
+                </p>
+            </div>
+
+            <button
+                class="secondary-button"
+                onclick="copyDraft()"
+            >
+                Copy
+            </button>
+        </div>
+
+        <textarea
+            id="draft"
+            class="draft-editor"
+            placeholder="Your generated foundation will appear here..."
+        ></textarea>
+
+    </section>
+
+</main>
+
+
+<script>
+
+async function generateDraft() {
+
+    const button = document.getElementById("generateButton");
+    const status = document.getElementById("status");
+
+    const oldEssay = document.getElementById("oldEssay").value;
+    const brainDump = document.getElementById("brainDump").value;
+    const prompt = document.getElementById("prompt").value;
+    const gradingRules = document.getElementById("gradingRules").value;
+
+    if (!brainDump.trim()) {
+        status.textContent = "Add your brain dump first.";
+        return;
+    }
+
+    if (!prompt.trim()) {
+        status.textContent = "Add the essay prompt first.";
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Building...";
+    status.textContent = "Gemini is building your foundation...";
+
+    try {
+
+        const response = await fetch("/generate", {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                old_essay: oldEssay,
+                brain_dump: brainDump,
+                prompt: prompt,
+                grading_rules: gradingRules
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || "Something went wrong.");
+        }
+
+        document.getElementById("draft").value = result.draft;
+
+        status.textContent = "Draft generated.";
+
+    } catch (error) {
+
+        status.textContent = error.message;
+
+    } finally {
+
+        button.disabled = false;
+        button.textContent = "Generate Foundation";
+    }
+}
+
+
+async function copyDraft() {
+
+    const draft = document.getElementById("draft").value;
+
+    if (!draft.trim()) {
+        return;
+    }
+
+    await navigator.clipboard.writeText(draft);
+
+    const status = document.getElementById("status");
+
+    status.textContent = "Copied.";
+
+    setTimeout(() => {
+        status.textContent = "";
+    }, 1500);
+}
+
+</script>
+
+</body>
+</html>
