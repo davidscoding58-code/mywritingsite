@@ -1,21 +1,16 @@
- import os
+import os
 from functools import wraps
 
 from flask import Flask, render_template, request, session, redirect, url_for
 from google import genai
 
-
 app = Flask(__name__)
-
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "change-this-secret")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "temporary-secret")
 
 SITE_PASSWORD = os.environ.get("SITE_PASSWORD")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-if GEMINI_API_KEY:
-    client = genai.Client(api_key=GEMINI_API_KEY)
-else:
-    client = None
+client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 
 def login_required(function):
@@ -60,9 +55,7 @@ def home():
 @login_required
 def generate():
     if client is None:
-        return {
-            "error": "Gemini API key is not configured on the server."
-        }, 500
+        return {"error": "Gemini API key is not configured."}, 500
 
     data = request.get_json(silent=True) or {}
 
@@ -80,41 +73,23 @@ def generate():
     system_instruction = """
 You are an expert college-essay drafting assistant.
 
-Your job is to turn a student's raw material into a strong FIRST-DRAFT
-FOUNDATION for an essay.
+Use the old essay only as a style reference. Do not copy distinctive
+sentences or phrases from it.
 
-The student's old essay is provided as a STYLE REFERENCE. Analyze its
-characteristics and write in a style that is strongly consistent with the
-student's natural writing patterns.
+Use the brain dump as the factual source material.
 
-Prioritize:
-- The student's natural vocabulary
-- Their sentence length and rhythm
-- Their level of formality
-- Their storytelling tendencies
-- Their way of explaining personal experiences
-- Their natural personality and perspective
+Answer the essay prompt directly and follow the grading rules.
 
-Do NOT copy distinctive sentences or phrases from the old essay.
-The old essay is for style analysis, not content copying.
+Do not invent experiences, achievements, conversations, emotions, or details.
 
-Use the student's brain dump as the factual source material.
+Write naturally and preserve the student's personality, vocabulary,
+sentence rhythm, and level of sophistication.
 
-IMPORTANT:
-- Do not invent achievements, experiences, conversations, emotions,
-  motivations, or details that are not supported by the student's material.
-- Do not manufacture fake stories simply to make the essay stronger.
-- If a detail is unclear, write around it rather than inventing it.
-- Preserve the student's actual perspective.
-- Do not make the writing unnecessarily sophisticated.
-- Avoid generic inspirational language and admissions clichés.
-- The result should sound like a strong version of the student, not like
-  a professional adult writer.
+Avoid generic admissions clichés and unnecessarily sophisticated language.
 
-The essay prompt is the assignment you must answer.
-The grading rules are constraints you must follow.
+Create a strong first-draft foundation that the student can edit.
 
-Produce only the draft itself. Do not explain your reasoning.
+Output only the draft.
 """
 
     user_prompt = f"""
@@ -123,7 +98,7 @@ OLD ESSAY — STYLE REFERENCE:
 {old_essay if old_essay else "[No old essay provided]"}
 
 
-BRAIN DUMP — STUDENT'S RAW MATERIAL:
+BRAIN DUMP:
 
 {brain_dump}
 
@@ -133,12 +108,9 @@ ESSAY PROMPT:
 {prompt}
 
 
-GRADING RULES / REQUIREMENTS:
+GRADING RULES:
 
 {grading_rules if grading_rules else "[No additional grading rules provided]"}
-
-
-Now create the first-draft foundation.
 """
 
     try:
@@ -151,14 +123,10 @@ Now create the first-draft foundation.
             },
         )
 
-        draft = response.text
-
-        return {"draft": draft}
+        return {"draft": response.text}
 
     except Exception as error:
-        return {
-            "error": f"Gemini request failed: {str(error)}"
-        }, 500
+        return {"error": f"Gemini request failed: {error}"}, 500
 
 
 if __name__ == "__main__":
