@@ -129,10 +129,10 @@ Do not output:
 Output ONLY the complete essay.
 """
 
-    user_prompt = f"""
-OLD ESSAY — STYLE REFERENCE:
+   user_prompt = f"""
+ESSAY PROMPT:
 
-{old_essay if old_essay else "[No old essay provided]"}
+{prompt}
 
 
 BRAIN DUMP:
@@ -140,14 +140,37 @@ BRAIN DUMP:
 {brain_dump}
 
 
-ESSAY PROMPT:
+WRITING REQUIREMENTS:
 
-{prompt}
+{grading_rules if grading_rules else "[No additional requirements provided]"}
 
 
-GRADING RULES:
+OLD ESSAY — STYLE REFERENCE:
 
-{grading_rules if grading_rules else "[No additional grading rules provided]"}
+{old_essay if old_essay else "[No style reference provided]"}
+
+
+ADDITIONAL INSTRUCTIONS:
+
+{additional_instructions if additional_instructions else "[No additional instructions provided]"}
+
+
+HUMAN FEEDBACK:
+
+{human_feedback if human_feedback else "[No human feedback provided]"}
+
+
+FORMALITY:
+
+{formality}/100
+
+
+CREATIVE RISK:
+
+{creative_risk}/100
+
+
+Write the complete essay now.
 """
 
     try:
