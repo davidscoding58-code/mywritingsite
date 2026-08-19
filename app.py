@@ -1,58 +1,21 @@
 import os
-from functools import wraps
 
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import Flask, render_template, request
 from google import genai
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "temporary-secret")
 
-SITE_PASSWORD = os.environ.get("SITE_PASSWORD")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 
-def login_required(function):
-    @wraps(function)
-    def decorated_function(*args, **kwargs):
-        if not session.get("logged_in"):
-            return redirect(url_for("login"))
-        return function(*args, **kwargs)
-
-    return decorated_function
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    error = None
-
-    if request.method == "POST":
-        password = request.form.get("password", "")
-
-        if SITE_PASSWORD and password == SITE_PASSWORD:
-            session["logged_in"] = True
-            return redirect(url_for("home"))
-
-        error = "Incorrect password."
-
-    return render_template("login.html", error=error)
-
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
-
-
 @app.route("/")
-@login_required
 def home():
     return render_template("index.html")
 
 
 @app.route("/generate", methods=["POST"])
-@login_required
 def generate():
     if client is None:
         return {"error": "Gemini API key is not configured."}, 500
