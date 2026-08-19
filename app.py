@@ -22,10 +22,16 @@ def generate():
 
     data = request.get_json(silent=True) or {}
 
-    old_essay = data.get("old_essay", "").strip()
-    brain_dump = data.get("brain_dump", "").strip()
-    prompt = data.get("prompt", "").strip()
-    grading_rules = data.get("grading_rules", "").strip()
+old_essay = data.get("old_essay", "").strip()
+brain_dump = data.get("brain_dump", "").strip()
+prompt = data.get("prompt", "").strip()
+grading_rules = data.get("grading_rules", "").strip()
+
+additional_instructions = data.get("additional_instructions", "").strip()
+human_feedback = data.get("human_feedback", "").strip()
+
+formality = int(data.get("formality", 45))
+creative_risk = int(data.get("creative_risk", 80))
 
     if not brain_dump:
         return {"error": "Please provide your brain dump."}, 400
